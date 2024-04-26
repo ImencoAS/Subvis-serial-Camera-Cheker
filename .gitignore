@@ -1,0 +1,3 @@
+serial-camera-checker/obj/*
+serial-camera-checker/bin/*
+.vscode/*
