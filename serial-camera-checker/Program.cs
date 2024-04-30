@@ -12,7 +12,7 @@ class Program
 
         if(args.Length == 0)
         {
-            SerialCameraChecker.SerialCameraChecker serialCameraChecker = new(SerialPort.GetPortNames()[0], baudrate, dataBits, parity, stopBits);
+            SerialCameraChecker.SerialCameraChecker serialCameraChecker = new(null, baudrate, dataBits, parity, stopBits);
         }
         else if(args[0] == "--help")
         {

@@ -15,6 +15,7 @@ namespace SerialCameraChecker
         {
             if (comPort == null)
             {
+                Console.WriteLine("No COM port specified, using the first available port. " + SerialPort.GetPortNames()[0]);
                 this.comPort = SerialPort.GetPortNames()[0];
             }
             else
@@ -26,8 +27,19 @@ namespace SerialCameraChecker
             this.parity = parity;
             this.stopBits = stopBits;
 
-            OpenPort(ConnectToPort(this.comPort));
-            Console.WriteLine($"Connected to {GetPortInfo(ConnectToPort(this.comPort))}");
+            SerialPort serialPort = ConnectToPort(this.comPort);
+
+            if(IsCameraConnected(serialPort))
+            {
+                Console.WriteLine("Camera is connected.\n" + GetPortInfo(serialPort));
+                Thread newThread = new(() => ReadFromPort(serialPort));
+                newThread.Start();
+                WriteToPort(serialPort, "81090435ff"); // Send command to camera
+            }
+            else
+            {
+                Console.WriteLine("Camera is not connected.");
+            }
         }
 
         public bool IsCameraConnected(SerialPort serialPort)
@@ -39,11 +51,13 @@ namespace SerialCameraChecker
         {
             SerialPort serialPort = new(portName)
             {
-                BaudRate = baudrate,
-                DataBits = dataBits,
-                Parity = parity,
-                StopBits = stopBits
+                BaudRate = this.baudrate,
+                DataBits = this.dataBits,
+                Parity = this.parity,
+                StopBits = this.stopBits
             };
+            Console.WriteLine("Connecting to port: " + portName);
+            OpenPort(serialPort);
             return serialPort;
         }
 
@@ -52,18 +66,18 @@ namespace SerialCameraChecker
             try
             {
                 serialPort.Open();
+ 
             }
             catch (System.Exception)
             {
-                
-                throw new System.Exception("Failed to open port, please check that the port is available and try again.");
+                Console.Error.WriteLine("Failed to open port, please check that the port is available and try again.");
+
             }
-            
         }
 
         public string[] GetPorts()
         {
-            throw new System.NotImplementedException();
+            return SerialPort.GetPortNames();
         }
 
         public string GetPortInfo(SerialPort serialPort)
@@ -79,12 +93,51 @@ namespace SerialCameraChecker
 
         public bool WriteToPort(SerialPort serialPort, string message)
         {
-            throw new System.NotImplementedException();
+            byte[] messageBytes = StringToByteArray(message);
+            serialPort.Write(messageBytes, 0, messageBytes.Length);
+            return true;
         }
 
-        public void ReadFromPort(SerialPort serialPort)
-        {
-            throw new System.NotImplementedException();
+public void ReadFromPort(SerialPort serialPort)
+{
+            Console.WriteLine("Reading data");
+            while(serialPort.IsOpen)
+            {
+                serialPort.DataReceived += (sender, e) =>
+                {
+                    string rawResponse = serialPort.ReadExisting();
+                    byte[] responseData = Encoding.Default.GetBytes(rawResponse); // Convert string to byte array
+                    Console.WriteLine("Hex encoding: " + ByteArrayToHexString(responseData));
+                    serialPort.Close();
+                };
+            }
         }
+
+
+        public static byte [] StringToByteArray(string hex)
+        {
+            int NumberChars = hex.Length;
+            byte[] bytes = new byte[NumberChars / 2];
+            for (int i = 0; i < NumberChars; i += 2)
+            {
+                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+            }
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                Console.WriteLine("Byte " + i + ": " + bytes[i]);
+            }
+            return bytes;
+        }
+
+        public static string ByteArrayToHexString(byte[] bytes)
+        {
+            StringBuilder result = new(bytes.Length * 2);
+            foreach (byte b in bytes)
+            {
+                result.AppendFormat("{0:X2}", b);
+            }
+            return result.ToString();
+        }
+
     }
 }
